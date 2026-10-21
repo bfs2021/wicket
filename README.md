@@ -19,11 +19,13 @@ pool = Pool(
     ledger,
     "materials",
     priority=Priority(
-        (FairShare(), 4), (Fact(lambda plan: plan.tier), 2), (Age(full_after=minutes(30)), 1)
+        (FairShare(), 4),
+        (Fact(lambda plan: plan.tier), 2),
+        (Age(full_after=timedelta(minutes=30)), 1),
     ),
-    limits=(Concurrency(4), Rate(10, per=minutes(1))),
-    lease=minutes(2),
-    poll=seconds(1),
+    limits=(Concurrency(4), Rate(10, per=timedelta(minutes=1))),
+    lease=timedelta(minutes=2),
+    poll=timedelta(seconds=1),
 )
 
 async with pool.permit() as permit:  # waits for a grant, renews the lease while the block runs
