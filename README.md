@@ -13,14 +13,14 @@ your workers what to take next.
 ## The idea
 
 ```python
-await backlog.submit("materials", Ticket(id=row_id, tenant=user_id, facts=Plan(tier=1.0)))
+await backlog.submit("materials", Ticket(id=row_id, tenant=str(user_id), traits={"tier": 1.0}))
 
 pool = Pool(
     ledger,
     "materials",
     priority=Priority(
         (FairShare(), 4),
-        (Fact(lambda plan: plan.tier), 2),
+        (Trait("tier"), 2),
         (Age(full_after=timedelta(minutes=30)), 1),
     ),
     limits=(Concurrency(4), Rate(10, per=timedelta(minutes=1))),
@@ -29,13 +29,14 @@ pool = Pool(
 )
 
 async with pool.permit() as permit:  # waits for a grant, renews the lease while the block runs
+    # only a block that ends normally releases; otherwise the ticket comes back after its lease
     await generate(permit.waiting.ticket.id)
 ```
 
 - Two users who each submit ten tickets get them in turns from the first grant, by Start-time Fair
   Queuing; one who returns after a break gets no burst of turns.
-- Priority is a weighted sum of factors, each scoring one trait in `0..1`: whose turn it is, a trait
-  of your own such as a plan tier, how long a ticket has waited.
+- Priority is a weighted sum of factors, each scoring tickets in `0..1`: whose turn it is, a trait
+  you give the ticket such as its plan tier, how long it has waited.
 - Limits hold across any number of processes: every grant is a compare-and-swap on the pool's version.
 - A worker that dies loses its lease, and the ticket is delivered again; a fencing token rejects the
   old worker's late write.

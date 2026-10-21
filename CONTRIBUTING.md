@@ -196,7 +196,7 @@ instead of growing the review. Do not [sign](#no-signatures) the review or its c
 
 - The code keeps the [invariants](ARCHITECTURE.md#invariants), or the pull request explains why not.
 - Every new public name is in `__all__`.
-- Errors say what failed and where; no credentials or ticket facts reach them.
+- Errors say what failed and where; no credentials or ticket data reach them.
 - New behaviour has a test; a new store passes `StoreContract`.
 - `just lint`, `just type` and `just test` pass.
 - A change users can notice has a [changelog fragment](#changelog).

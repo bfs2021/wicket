@@ -4,13 +4,13 @@
 
 ## Context
 
-A ticket's `facts` are the caller's typed payload, and every store must persist them. Values in the
-core are immutable records.
+Values in the core are immutable records, and every store persists tickets, permits and the
+pool's `Fairness`.
 
 ## Decision
 
-- **msgspec** for every value: frozen `Struct`s, and the encoding a store uses for `facts`, which the
-  caller declares as a frozen `msgspec.Struct`.
+- **msgspec** for every value: frozen `Struct`s whose `__post_init__` checks run on decoding too,
+  so a ticket read from a store is checked as one built in code, and the encoding a store uses.
 - **The PostgreSQL store is an optional extra,** `wicket[postgres]`, so the core installs with
   msgspec alone. Its driver is chosen when the store is built, in its own decision.
 
@@ -21,5 +21,4 @@ core are immutable records.
 
 ## Consequences
 
-- A caller's facts must be a msgspec type.
 - No logging or metrics library: observation is the caller's wrapper.

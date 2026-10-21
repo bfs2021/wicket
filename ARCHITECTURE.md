@@ -28,8 +28,8 @@ Planned; all code will be in `src/wicket/`.
 
 | part | what is there |
 |---|---|
-| core | the values `Ticket`, `Waiting`, `Permit`, `PoolView`, `Version`, `Fairness` and the result values; the contracts `Factor`, `Limit`, `Backlog`, `Ledger`; `Priority`; `Pool` |
-| factors and limits | `FairShare`, `Age`, `Fact`; `Concurrency`, `Rate` |
+| core | the values `Ticket`, `Waiting`, `Permit`, `PoolView`, `Version`, `Fairness` and the result values; the errors `LeaseLostError` and `StoreUnavailable`; the contracts `Factor`, `Limit`, `Backlog`, `Ledger`; `Priority`; `Pool` |
+| factors and limits | `FairShare`, `Age`, `Trait`; `Concurrency`, `Rate` |
 | in-memory store | `MemoryState`, and its two adapters `MemoryBacklog` and `MemoryLedger` |
 | `StoreContract` | the test suite every pair of store adapters passes |
 | `postgres` extra | `PostgresBacklog` on the caller's session and `PostgresLedger` on its own engine |
@@ -54,23 +54,29 @@ in all of `src/wicket/`.
 5. **"No value" is an object, not `None`.** An outcome is a result value — `Conflict`, `LeaseLost`,
    `NoTicket` and the rest — that the caller matches on; `None` is not a result.
 6. **The decision is pure.** `Limit.admits`, `Factor.scores`, `Priority.first` and `Fairness.after`
-   read a `PoolView` and return a value: no I/O, no clock, no randomness. A `Limit` reads only what a
-   grant changes — `leased`, `grants` and `now` — so the version check keeps every limit.
+   read a `PoolView` and return a value: no I/O, no clock, no randomness. A `Limit`'s answer may turn
+   from refuse to admit without a grant, never the reverse, so it reads only `leased`,
+   `grant_times`, `now` and `retention`: time passing, an expiry, a release or a withdrawal can only
+   loosen it, and the version check keeps every limit.
 7. **One clock, the store's.** Every moment in a view comes from the store. The only other clock is the
-   worker's monotonic clock, for when to renew its lease.
+   event loop's (`loop.time()`), for when to renew a lease.
 8. **Each port has its own adapter.** Producers and workers change for different reasons, so a store
    brings a `Backlog` class and a `Ledger` class that share only its data.
 9. **The library does not print or log.** It returns values and raises errors; observing them is the
    caller's.
 10. **Types are checked on data, never on behaviour.** `match` reads the closed unions of results;
     objects with behaviour are called through their interface.
+11. **Nothing of the caller's type passes through.** A ticket carries its importance as named numbers
+    in `0..1`, its `traits`, which `Ticket` checks where it is built or decoded; the work itself stays
+    in the caller's row. So no class has a type parameter.
 
 **Where wicket departs from *Elegant Objects*:**
 
 - **Data has public fields.** `Ticket`, `Waiting`, `Permit` and `PoolView` are immutable records with
   public fields; accessor methods would be noise in Python.
 - **A permit is held with `async with`**, Python's usual "take, use, give back".
-- **The in-memory store changes inside**, behind its lock; its state never leaves it except as views.
+- **Two kinds of objects change inside:** the in-memory store, behind its lock, whose state never
+  leaves it except as views; and `Pool`'s lock, which orders the `permit()` calls of one process.
 
 ## Cross-cutting concerns
 
@@ -81,9 +87,11 @@ a grant one at a time behind its lock, so only processes conflict and a process 
 between `poll / 2` and `poll`
 ([decision 2](docs/decisions/0002-pure-decision-over-a-store.md)).
 
-**Failure.** Delivery is at least once. A lost lease cancels the worker's block with
-`LeaseLostError` and releases nothing, so the ticket is delivered again; the permit's token lets the
-caller reject the old worker's late write ([decision 5](docs/decisions/0005-leases.md)).
+**Failure.** Delivery is at least once. Only a block that ends normally releases its ticket; an
+error of the body, a cancellation or a lost lease (`LeaseLostError`) releases nothing, so the ticket
+is delivered again once its lease ends, and the permit's token lets the caller reject the old
+worker's late write ([decision 5](docs/decisions/0005-leases.md)). A store that cannot be reached
+raises `StoreUnavailable`, the one store error `Pool` retries, and only while renewing a lease.
 
 **Dependencies.** msgspec; why is in [decision 6](docs/decisions/0006-dependencies.md). Adding a
 runtime dependency needs an ADR.
