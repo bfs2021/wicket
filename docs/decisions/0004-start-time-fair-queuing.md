@@ -12,9 +12,9 @@ not be pushed to the back. The score must also let `FairShare` decide alone at a
 ## Decision
 
 [Start-time Fair Queuing](https://www.cs.utexas.edu/ftp/techreports/tr96-02.pdf) (Goyal, Vin and
-Cheng, 1996), the scheme [Kubernetes API Priority and
-Fairness](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/1040-priority-and-fairness/README.md)
-adapts to requests of unknown length, with every ticket weighing one:
+Cheng, 1996), with every ticket weighing one. [Kubernetes API Priority and
+Fairness](https://github.com/kubernetes/enhancements/blob/master/keps/sig-api-machinery/1040-priority-and-fairness/README.md),
+a fair queuing scheme of its own, also starts a newly active queue at the current virtual time.
 
 - `Fairness` holds a virtual time `v` and a finish tag per tenant; a tenant starts at
   `max(v, finish[t])`, or at `v` with no tag.

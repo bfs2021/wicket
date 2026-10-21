@@ -14,8 +14,10 @@ store (one SQL query), and a leader process.
   `Priority` choose, and calls `grant` with the view's `version` and the new `Fairness`.
 - **A grant is a compare-and-swap on the pool's version.** It succeeds only if the version is
   unchanged and the ticket still waiting; it writes the permit, the grant's time and the `Fairness`
-  together. Only a grant changes the version, and a `Limit` reads only what a grant changes, so no
-  limit is exceeded and `Fairness` never forks. On `Conflict` the pool reads again at once.
+  together. Only a grant changes the version, and a `Limit` can only be loosened by anything else,
+  so no limit is exceeded and `Fairness` never forks. On `Conflict` the pool reads again at once; on
+  `Missing` — the ticket was withdrawn or is held by a caller's open transaction, and the version is
+  unchanged — it chooses the next ticket of the same view.
 - **One waiting call at a time per `Pool`.** The `permit()` calls of one `Pool` wait for a grant
   behind its lock, held while reading, granting and sleeping, so the workers of one process never
   conflict with each other and a process reads once per `poll`; only processes conflict.
@@ -25,10 +27,12 @@ store (one SQL query), and a leader process.
   `StoreContract`: one grant at a time; one clock, the store's (`clock_timestamp()` in PostgreSQL);
   expiry computed on read, never written; a consistent snapshot (in PostgreSQL one statement or one
   read-only `REPEATABLE READ` transaction; a grant in `READ COMMITTED` starts with the version's
-  `UPDATE … WHERE version = :v`, which updates nothing under a concurrent grant); leases matched on
-  `(pool, id, token)`; grant history complete for a retention the view reports; pools that appear
-  on first use; a durable backlog that can join the caller's transaction; and a cancelled call that
-  leaves the store usable.
+  `UPDATE … WHERE version = :v`, which updates nothing under a concurrent grant); a grant that
+  never waits on a ticket row another transaction holds, but answers `Missing` (`SKIP LOCKED`);
+  leases matched on `(pool, id, token)`; grant history complete for a retention the view reports;
+  pools that appear on first use; a durable backlog that can join the caller's transaction; and a
+  failed or cancelled call that leaves the store usable, with `StoreUnavailable` for a store that
+  cannot be reached.
 - **Polling, not signals.** With nothing to grant the pool sleeps a random time between `poll / 2`
   and `poll`.
 
@@ -42,8 +46,8 @@ store (one SQL query), and a leader process.
 
 ## Consequences
 
-- A decision is O(waiting tickets): about 1.4 ms for 1k and 15 ms for 10k in simulation. Beyond that,
-  shard pools.
+- A decision is O(waiting tickets): on a PostgreSQL prototype about 4 ms for 1k waiting and 32 ms
+  for 10k, snapshot and scoring together. Beyond that, shard pools.
 - The processes of one pool conflict. On a PostgreSQL prototype 64 workers bursting took 31 views per
   grant without the lock and 3.9 with it, in 4 processes of 16; there is no livelock and no starved
   worker.
