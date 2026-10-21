@@ -16,15 +16,21 @@ store (one SQL query), and a leader process.
   unchanged and the ticket still waiting; it writes the permit, the grant's time and the `Fairness`
   together. Only a grant changes the version, and a `Limit` reads only what a grant changes, so no
   limit is exceeded and `Fairness` never forks. On `Conflict` the pool reads again at once.
+- **One waiting call at a time per `Pool`.** The `permit()` calls of one `Pool` wait for a grant
+  behind its lock, held while reading, granting and sleeping, so the workers of one process never
+  conflict with each other and a process reads once per `poll`; only processes conflict.
 - **Two ports, one per actor:** `Backlog` (submit, withdraw) for producers and `Ledger` (view, grant,
   renew, release) for pools, each with its own adapter class.
 - **The store's obligations** are the contract every pair of adapters keeps, checked by
   `StoreContract`: one grant at a time; one clock, the store's (`clock_timestamp()` in PostgreSQL);
-  expiry computed on read, never written; a consistent snapshot (one `REPEATABLE READ` transaction in
-  PostgreSQL); leases matched on `(pool, id, token)`; grant history complete for a retention the view
-  reports; pools that appear on first use; and a durable backlog that can join the caller's
-  transaction.
-- **Polling, not signals.** With nothing to grant the pool sleeps `poll` with jitter of up to half.
+  expiry computed on read, never written; a consistent snapshot (in PostgreSQL one statement or one
+  read-only `REPEATABLE READ` transaction; a grant in `READ COMMITTED` starts with the version's
+  `UPDATE … WHERE version = :v`, which updates nothing under a concurrent grant); leases matched on
+  `(pool, id, token)`; grant history complete for a retention the view reports; pools that appear
+  on first use; a durable backlog that can join the caller's transaction; and a cancelled call that
+  leaves the store usable.
+- **Polling, not signals.** With nothing to grant the pool sleeps a random time between `poll / 2`
+  and `poll`.
 
 ## Alternatives
 
@@ -38,7 +44,8 @@ store (one SQL query), and a leader process.
 
 - A decision is O(waiting tickets): about 1.4 ms for 1k and 15 ms for 10k in simulation. Beyond that,
   shard pools.
-- Concurrent workers of one pool conflict: a burst to 64 awake workers took about 10 views per grant,
-  with no livelock and no starved worker.
-- An idle pool reads its snapshot every `poll` per worker. A store-side wake-up can come later behind
+- The processes of one pool conflict. On a PostgreSQL prototype 64 workers bursting took 31 views per
+  grant without the lock and 3.9 with it, in 4 processes of 16; there is no livelock and no starved
+  worker.
+- An idle pool reads its snapshot every `poll` per process. A store-side wake-up can come later behind
   the same `permit()`.

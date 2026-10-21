@@ -75,8 +75,10 @@ in all of `src/wicket/`.
 ## Cross-cutting concerns
 
 **Concurrency.** Every grant is a compare-and-swap on the pool's version; nothing else changes it, so
-heartbeats and submissions never make grants conflict. On a conflict the pool reads again at once;
-with nothing to grant it sleeps its `poll` with jitter of up to half
+heartbeats and submissions never make grants conflict. The `permit()` calls of one `Pool` wait for
+a grant one at a time behind its lock, so only processes conflict and a process reads once per
+`poll`. On a conflict the pool reads again at once; with nothing to grant it sleeps a random time
+between `poll / 2` and `poll`
 ([decision 2](docs/decisions/0002-pure-decision-over-a-store.md)).
 
 **Failure.** Delivery is at least once. A lost lease cancels the worker's block with
