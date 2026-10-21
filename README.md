@@ -1,0 +1,52 @@
+# wicket
+
+Fair admission of work to shared capacity, for Python.
+
+wicket decides **which waiting piece of work may start now**: by priority, by fairness between the
+parties that submit it, and within limits on how much runs at once and how fast it starts. It does
+not run the work, retry it or keep its status. It sits beside the queue you already have and tells
+your workers what to take next.
+
+> **Status:** designed, not built yet. Nothing below can be installed today; the decisions behind it
+> are in [docs/decisions](https://github.com/deyna256/wicket/tree/main/docs/decisions).
+
+## The idea
+
+```python
+await backlog.submit("materials", Ticket(id=row_id, tenant=user_id, facts=Plan(tier=1.0)))
+
+pool = Pool(
+    ledger,
+    "materials",
+    priority=Priority(
+        (FairShare(), 4), (Fact(lambda plan: plan.tier), 2), (Age(full_after=minutes(30)), 1)
+    ),
+    limits=(Concurrency(4), Rate(10, per=minutes(1))),
+    lease=minutes(2),
+    poll=seconds(1),
+)
+
+async with pool.permit() as permit:  # waits for a grant, renews the lease while the block runs
+    await generate(permit.waiting.ticket.id)
+```
+
+- Two users who each submit ten tickets get them in turns from the first grant, by Start-time Fair
+  Queuing; one who returns after a break gets no burst of turns.
+- Priority is a weighted sum of factors, each scoring one trait in `0..1`: whose turn it is, a trait
+  of your own such as a plan tier, how long a ticket has waited.
+- Limits hold across any number of processes: every grant is a compare-and-swap on the pool's version.
+- A worker that dies loses its lease, and the ticket is delivered again; a fencing token rejects the
+  old worker's late write.
+- State lives behind two small ports, `Backlog` and `Ledger`, with an in-memory store and a
+  PostgreSQL one.
+
+## Documentation
+
+- [Architecture](https://github.com/deyna256/wicket/blob/main/ARCHITECTURE.md): how the code is laid out
+  and the rules it keeps.
+- [Decisions](https://github.com/deyna256/wicket/tree/main/docs/decisions): why it is shaped this way.
+- [Contributing](https://github.com/deyna256/wicket/blob/main/CONTRIBUTING.md).
+
+## License
+
+[MIT](https://github.com/deyna256/wicket/blob/main/LICENSE).
