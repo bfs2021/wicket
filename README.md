@@ -7,8 +7,9 @@ parties that submit it, and within limits on how much runs at once and how fast 
 not run the work, retry it or keep its status. It sits beside the queue you already have and tells
 your workers what to take next.
 
-> **Status:** designed, not built yet. Nothing below can be installed today; the decisions behind it
-> are in [docs/decisions](https://github.com/deyna256/wicket/tree/main/docs/decisions).
+> **Status:** the core and the in-memory store are built and unreleased; the PostgreSQL store is
+> next. The decisions behind the design are in
+> [docs/decisions](https://github.com/deyna256/wicket/tree/main/docs/decisions).
 
 ## The idea
 
@@ -40,8 +41,8 @@ async with pool.permit() as permit:  # waits for a grant, renews the lease while
 - Limits hold across any number of processes: every grant is a compare-and-swap on the pool's version.
 - A worker that dies loses its lease, and the ticket is delivered again; a fencing token rejects the
   old worker's late write.
-- State lives behind two small ports, `Backlog` and `Ledger`, with an in-memory store and a
-  PostgreSQL one.
+- State lives behind two small ports, `Backlog` and `Ledger`, with an in-memory store (built)
+  and a PostgreSQL one (planned).
 
 ## Documentation
 
