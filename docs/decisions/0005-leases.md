@@ -13,7 +13,10 @@ worker that wakes up must not overwrite the result of the worker that took the t
   renewal that fails on a connection error is retried every `lease / 30` until the lease would end,
   measured on the worker's monotonic clock.
 - **A lost lease cancels the block** with `LeaseLostError` and **releases nothing**, so the ticket is
-  delivered again. `LeaseLostError` means only that.
+  delivered again, even if the body caught the cancellation and ended normally. `LeaseLostError`
+  means only that.
+- **A cancellation from outside releases nothing.** A release means the work is done; a worker
+  that shuts down leaves its tickets to be delivered again once their leases end.
 - **Expiry is the store's.** Once the store's clock passes the lease end the ticket is waiting again,
   with its `submitted_at` and grant count kept.
 - **A late release succeeds** while no one has leased the ticket again; it only lowers the leased
