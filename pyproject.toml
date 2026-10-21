@@ -1,0 +1,102 @@
+[project]
+name = "wicket"
+version = "0.1.0"
+description = "Fair admission of work to shared capacity: which waiting ticket may start now, by priority, fairness between tenants, and limits on concurrency and rate."
+keywords = [
+    "scheduling", "admission-control", "fair-queuing", "fairness", "priority", "multi-tenant",
+    "rate-limiting", "concurrency-limit", "work-queue", "asyncio", "postgresql",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+    "Framework :: AsyncIO",
+]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "deyna256", email = "literallybugcreator@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "msgspec>=0.22.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/deyna256/wicket"
+Documentation = "https://github.com/deyna256/wicket/tree/main/docs"
+Changelog = "https://github.com/deyna256/wicket/blob/main/CHANGELOG.md"
+Issues = "https://github.com/deyna256/wicket/issues"
+
+[build-system]
+requires = ["uv_build>=0.13.0,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-timeout>=2.4.0",
+    "ruff>=0.16.10",
+    "towncrier>=26.9.0",
+    "ty>=0.0.84",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+timeout = 30
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF"]
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}] - {project_date}"
+issue_format = "[#{issue}](https://github.com/deyna256/wicket/issues/{issue})"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecated"
+name = "Deprecated"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
