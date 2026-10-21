@@ -25,6 +25,9 @@ adapts to requests of unknown length, with every ticket weighing one:
   the rest.
 - `Fairness` is written by the grant, so the version check covers it.
 
+With every ticket weighing one this is round robin over the tenants with waiting tickets, in which a
+tenant that becomes active joins the current round.
+
 ## Alternatives
 
 Each was tried by review or simulation:
