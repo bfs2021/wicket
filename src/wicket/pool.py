@@ -144,7 +144,10 @@ class _Renewal:
     async def _renewing(self) -> None:
         loop, seconds = asyncio.get_running_loop(), self._lease.total_seconds()
         while True:
-            await asyncio.sleep(seconds / 3)
+            # Date the wait from the recorded grant, not from when its response
+            # arrived: a slow grant otherwise pushes the first renewal past the
+            # lease's end (#6).
+            await asyncio.sleep(max(0.0, self._since + seconds / 3 - loop.time()))
             while True:
                 tried, last_try = loop.time(), self._since + seconds - seconds / 30
                 deadline = asyncio.timeout_at(last_try)

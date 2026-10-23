@@ -548,3 +548,29 @@ async def test_a_store_unreachable_while_waiting_propagates_and_frees_the_pool()
             pass
     async with shared.permit() as permit:  # the lock was let go
         assert permit.attempt == 1
+
+
+async def test_first_renewal_is_dated_from_the_grant_not_the_response():
+    """A grant response delayed by 25/30 of the lease must not push the first renewal (#6)."""
+    _, ledger = await submitted()
+
+    class SlowGrant(Scripted):
+        async def grant(self, *args, **kwargs):
+            answer = await super().grant(*args, **kwargs)
+            if isinstance(answer, Permit):
+                await asyncio.sleep(0.25)
+            return answer
+
+    slow = SlowGrant(ledger)
+    short = Pool(
+        slow,
+        "p",
+        priority=FAIR,
+        limits=(),
+        lease=timedelta(milliseconds=300),
+        poll=timedelta(milliseconds=10),
+    )
+    async with short.permit() as permit:
+        await asyncio.sleep(0.25)  # past the original lease end; only a timely renewal saves it
+        assert permit.attempt == 1
+    assert slow.renewals >= 1
